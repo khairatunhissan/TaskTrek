@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Invite Students</h1>
+<form method="post" class="card">
+  <label>Student Email <input name="email" type="email" required placeholder="student@clemson.edu"></label>
+  <button class="btn primary" type="submit">Generate Invite</button>
+</form>
+{% if token %}
+<div class="card" style="margin-top:1rem;">
+  <p>Share this link:</p>
+  <code>{{ request.url_root.rstrip('/') }}/accept/{{ token }}</code>
+</div>
+{% endif %}
+{% endblock %}

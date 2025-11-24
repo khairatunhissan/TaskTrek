@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Edit Problem</h1>
+<form method="post" class="card">
+  <label>Title
+    <input name="title" value="{{ p.title }}" required>
+  </label>
+
+  <label>Description / Prompt
+    <textarea name="prompt" rows="6" required>{{ p.prompt }}</textarea>
+  </label>
+
+  <label>Tests (JSON)
+    <textarea name="tests" rows="10" required>{{ p.tests_json }}</textarea>
+  </label>
+
+  <button class="btn primary" type="submit">Save Changes</button>
+</form>
+{% endblock %}

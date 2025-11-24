@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Problems</h1>
+
+<ul class="list">
+  {% for p in items %}
+    <li>
+      <div class="problem-row">
+        <div class="problem-meta">
+          <strong class="problem-title">{{ p.title }}</strong>
+          <span class="muted"> — {{ p.prompt }}</span>
+        </div>
+        <div class="problem-actions">
+          <!-- Everyone can Solve -->
+          <a class="btn" href="{{ url_for('solve', pid=p.id) }}">Solve</a>
+
+          <!-- Only the owner instructor sees Edit/Delete -->
+          {% if role == 'instructor' and p.instructor_id == current_user.id %}
+            <a class="btn" href="{{ url_for('problem_edit', pid=p.id) }}">Edit</a>
+            <form method="post"
+                  action="{{ url_for('problem_delete', pid=p.id) }}"
+                  style="display:inline"
+                  onsubmit="return confirm('Delete this problem?');">
+              <button class="btn" type="submit">Delete</button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+    </li>
+  {% else %}
+    <li class="muted">No problems yet.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

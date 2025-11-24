@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ p.title }}</h1>
+<p class="muted">{{ p.prompt }}</p>
+
+<div style="margin-top:1rem;">
+  <!-- Everyone can solve -->
+  <a class="btn" href="{{ url_for('solve', pid=p.id) }}">Solve</a>
+
+  <!-- Only owner instructor can Edit/Delete -->
+  {% if role == 'instructor' and p.instructor_id == current_user.id %}
+    <a class="btn" href="{{ url_for('problem_edit', pid=p.id) }}">Edit</a>
+    <form method="post"
+          action="{{ url_for('problem_delete', pid=p.id) }}"
+          style="display:inline"
+          onsubmit="return confirm('Delete this problem?');">
+      <button class="btn" type="submit">Delete</button>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

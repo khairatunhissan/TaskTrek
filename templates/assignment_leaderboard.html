@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page">Leaderboard · {{ assignment.title }}</h1>
+
+<p class="muted">
+  Instructor: {{ assignment.instructor.email }}
+</p>
+
+{% if problems and rows %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Student</th>
+        {% for pr in problems %}
+          <th>{{ pr.title }}</th>
+        {% endfor %}
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ row.user.email }}</td>
+          {% for pp in row.per_problem %}
+            <td>{{ pp.score }} / {{ pp.max }}</td>
+          {% endfor %}
+          <td><strong>{{ row.total_score }} / {{ row.total_max }}</strong></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p class="muted">No data yet. Students may not have accepted invites or submitted any solutions.</p>
+{% endif %}
+{% endblock %}

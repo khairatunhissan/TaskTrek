@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page">My Assignments</h1>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Title</th>
+      <th>Instructor</th>
+      <th>Leaderboard</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for a in assignments %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ a.title }}</td>
+        <td>{{ a.instructor.email }}</td>
+        <td>
+          <a class="btn" href="{{ url_for('assignment_leaderboard', aid=a.id) }}">
+            View
+          </a>
+        </td>
+      </tr>
+    {% else %}
+      <tr>
+        <td colspan="4" class="muted">
+          No assignments yet. When an instructor assigns work to you,
+          it will appear here.
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

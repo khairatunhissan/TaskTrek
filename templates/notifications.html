@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page">Notifications</h1>
+
+{% if invites|length == 0 %}
+  <p class="muted">No invitations yet.</p>
+{% else %}
+  <ul class="list">
+    {% for inv in invites %}
+      <li>
+        <div class="problem-row">
+          <div class="problem-meta">
+            <strong>{{ inv.problem.title }}</strong>
+<span class="muted">
+  — invited by {{ inv.instructor.email }}
+  on {{ inv.created_at.strftime('%Y-%m-%d %H:%M') }}
+</span>
+
+{% if inv.assignment %}
+  <div class="muted" style="margin-top:.2rem;">
+    Assignment:
+    <a href="{{ url_for('assignment_leaderboard', aid=inv.assignment_id) }}">
+      {{ inv.assignment.title }} leaderboard
+    </a>
+  </div>
+{% endif %}
+
+{% if inv.note %}
+  <div class="muted" style="margin-top:.2rem;">Note: {{ inv.note }}</div>
+{% endif %}
+
+{% if inv.status == 'accepted' %}
+  <div class="badge" style="background:#52c41a">accepted</div>
+{% endif %}
+
+          </div>
+          <div class="problem-actions">
+            {% if inv.status != 'accepted' %}
+            <form method="post" style="display:inline">
+              <input type="hidden" name="invite_id" value="{{ inv.id }}">
+              <button class="btn primary" type="submit">Accept & Open</button>
+            </form>
+            {% else %}
+              <a class="btn" href="{{ url_for('solve', pid=inv.problem_id) }}">Open</a>
+            {% endif %}
+          </div>
+        </div>
+      </li>
+    {% endfor %}
+  </ul>
+{% endif %}
+{% endblock %}

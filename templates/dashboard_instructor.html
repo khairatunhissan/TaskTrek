@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page">Instructor Dashboard</h1>
+<div class="grid">
+  <a class="tile" href="{{ url_for('invite') }}">
+    <h3>Invite Students</h3><p>Create an invite link and share it.</p>
+  </a>
+  <a class="tile" href="{{ url_for('problem_new') }}">
+    <h3>New Problem</h3><p>Upload coding problem with JSON tests.</p>
+  </a>
+  <a class="tile" href="{{ url_for('problems') }}">
+    <h3>Problem Bank</h3><p>View & open problems.</p>
+  </a>
+  <a class="tile" href="{{ url_for('leaderboard') }}">
+    <h3>Leaderboard</h3><p>See class standings.</p>
+  </a>
+</div>
+{% endblock %}

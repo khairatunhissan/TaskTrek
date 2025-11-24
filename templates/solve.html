@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page">Solve: {{ p.title }}</h1>
+
+<div class="solve-split">
+  <!-- LEFT: Problem list + description -->
+  <aside class="solve-left">
+    <h3>Problems</h3>
+    <ul class="side-list">
+      {% for it in problems %}
+        <li class="{% if it.id == p.id %}active{% endif %}">
+          <a href="{{ url_for('solve', pid=it.id) }}">{{ it.title }}</a>
+        </li>
+      {% endfor %}
+    </ul>
+
+    <div class="problem-desc card">
+      <h4>Description</h4>
+      <p class="muted">{{ p.prompt }}</p>
+      <div class="tips">
+        <strong>Function signature:</strong> <code>def solve(x): ...</code><br/>
+        <small>Return a value (don’t print).</small>
+      </div>
+    </div>
+  </aside>
+
+  <!-- RIGHT: Editor + Run + Results -->
+  <section class="solve-right">
+    <!-- ONE form only: button + textarea live in the same form -->
+    <form id="codeForm" method="post">
+      <div class="editor-bar">
+        <div><strong>Editor</strong> <span class="muted">· Python</span></div>
+        <div>
+          <button class="btn primary" type="submit">Run</button>
+        </div>
+      </div>
+
+      <textarea name="code" rows="18" spellcheck="false" class="codearea">{% if request.form.code %}{{ request.form.code }}{% else %}def solve(x):
+    # TODO: implement your solution
+    return x
+{% endif %}</textarea>
+    </form>
+
+    <div class="results">
+      <div class="results-bar">
+        <strong>Results</strong>
+        {% if details %}<span class="muted">· {{ details|length }} tests</span>{% endif %}
+      </div>
+
+      {% if details %}
+        {% set passed = details|selectattr("ok")|list|length %}
+        <div class="status {% if passed == details|length %}ok{% else %}warn{% endif %}">
+          {% if passed == details|length %}
+            ✅ Passed {{ passed }}/{{ details|length }} tests
+          {% else %}
+            ⚠️ Passed {{ passed }}/{{ details|length }} tests
+          {% endif %}
+        </div>
+
+        <table class="table compact">
+          <thead>
+            <tr>
+              <th>#</th><th>Input</th><th>Expected</th><th>Output/Error</th><th>OK</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for d in details %}
+              <tr>
+                <td>{{ loop.index }}</td>
+                <td><code>{{ d.input }}</code></td>
+                <td><code>{{ d.expected }}</code></td>
+                <td>
+                  <code>
+                    {% if 'output' in d %}
+                      {{ d.output }}
+                    {% else %}
+                      {{ d.error }}
+                    {% endif %}
+                  </code>
+                </td>
+                <td>{% if d.ok %}✅{% else %}❌{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="muted" style="padding:1rem;">Click <strong>Run</strong> to execute tests.</p>
+      {% endif %}
+    </div>
+  </section>
+</div>
+
+<script>
+  // Scroll results into view after run
+  const s = document.querySelector('.results .status');
+  if (s) s.scrollIntoView({behavior:'smooth', block:'center'});
+</script>
+{% endblock %}

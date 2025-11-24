@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>New Problem</h1>
+<form method="post" class="card">
+  <label>Title <input name="title" required></label>
+  <label>Description / Prompt <textarea name="prompt" rows="6" required></textarea></label>
+  <label>Tests (JSON) 
+    <textarea name="tests" rows="10" placeholder='[{"input":0,"expected":1},{"input":5,"expected":120}]' required></textarea>
+  </label>
+  <button class="btn primary" type="submit">Create</button>
+</form>
+{% endblock %}

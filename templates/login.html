@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Login</h1>
+<form method="post" class="card">
+  <label>Email <input name="email" type="email" placeholder="instructor@clemson.edu" required></label>
+  <label>Password <input name="password" type="password" required></label>
+  <button class="btn primary" type="submit">Login</button>
+</form>
+<p class="muted">Today this just toggles a session; tomorrow we’ll use real accounts.</p>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page">Student Dashboard</h1>
+<div class="grid">
+  <a class="tile" href="{{ url_for('problems') }}">
+    <h3>Problem Bank</h3><p>Browse and solve problems.</p>
+  </a>
+  <a class="tile" href="{{ url_for('leaderboard') }}">
+    <h3>Leaderboard</h3><p>Track your standing.</p>
+  </a>
+</div>
+{% endblock %}

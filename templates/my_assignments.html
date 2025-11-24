@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page">My Assignments</h1>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Title</th>
+      <th>Instructor</th>
+      <th>Created</th>
+      <th>Leaderboard</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for a in assignments %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ a.title }}</td>
+        <td>{{ a.instructor.email if a.instructor else "Unknown" }}</td>
+        <td>{{ a.created_at.strftime("%Y-%m-%d %H:%M") if a.created_at else "" }}</td>
+        <td>
+          <a class="btn" href="{{ url_for('assignment_leaderboard', aid=a.id) }}">
+            View Leaderboard
+          </a>
+        </td>
+      </tr>
+    {% else %}
+      <tr>
+        <td colspan="5" class="muted">You have no assignments yet.</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
