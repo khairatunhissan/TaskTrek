@@ -2,11 +2,19 @@
 {% block content %}
 <h1 class="page">Student Dashboard</h1>
 <div class="grid">
-  <a class="tile" href="{{ url_for('problems') }}">
-    <h3>Problem Bank</h3><p>Browse and solve problems.</p>
+  <a class="tile" href="{{ url_for('my_assignments') }}">
+    <h3>My Assignments</h3>
+    <p>View all assignments and leaderboards you have access to.</p>
   </a>
-  <a class="tile" href="{{ url_for('leaderboard') }}">
-    <h3>Leaderboard</h3><p>Track your standing.</p>
+
+  <a class="tile" href="{{ url_for('notifications') }}">
+    <h3>Notifications</h3>
+    <p>See and accept new problem invites.</p>
+  </a>
+
+  <a class="tile" href="{{ url_for('problems') }}">
+    <h3>Problem Bank</h3>
+    <p>Browse and solve problems.</p>
   </a>
 </div>
 {% endblock %}

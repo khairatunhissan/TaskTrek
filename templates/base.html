@@ -15,29 +15,36 @@
       <!-- Navigation -->
 <nav>
   {% if current_user.is_authenticated %}
+    {% if role == 'admin' %}
+      <a href="{{ url_for('admin_users') }}">Admin: Users</a>
+      <a href="{{ url_for('change_password') }}">Change Password</a>
+      <a href="{{ url_for('logout') }}">Logout</a>
 
-    {% if role == 'instructor' %}
+    {% elif role == 'instructor' %}
       <a href="{{ url_for('problems') }}">Problems</a>
       <a href="{{ url_for('assignments') }}">Assignments</a>
-      <a href="{{ url_for('leaderboard') }}">Global Leaderboard</a>
-      <a href="{{ url_for('assign') }}">Assign (single problem)</a>
       <a href="{{ url_for('invites_manage') }}">Manage Invites</a>
-      <a href="{{ url_for('invite') }}">Invite (Account)</a>
+      <a href="{{ url_for('change_password') }}">Change Password</a>
+      <a href="{{ url_for('logout') }}">Logout</a>
 
     {% elif role == 'student' %}
       <a href="{{ url_for('problems') }}">Problems</a>
-      <a href="{{ url_for('my_assignments') }}">Assignments</a>
-      <a href="{{ url_for('leaderboard') }}">Global Leaderboard</a>
+      <a href="{{ url_for('my_assignments') }}">My Assignments</a>
       <a href="{{ url_for('notifications') }}">
         Notifications{% if notif_count %} <span class="badge">{{ notif_count }}</span>{% endif %}
       </a>
-    {% endif %}
+      <a href="{{ url_for('change_password') }}">Change Password</a>
+      <a href="{{ url_for('logout') }}">Logout</a>
 
-    <a href="{{ url_for('logout') }}">Logout</a>
+    {% else %}
+      <a href="{{ url_for('change_password') }}">Change Password</a>
+      <a href="{{ url_for('logout') }}">Logout</a>
+    {% endif %}
   {% else %}
     <a href="{{ url_for('login') }}">Login</a>
   {% endif %}
 </nav>
+
 
     </div>
   </header>
@@ -57,7 +64,7 @@
   </main>
 
   <footer class="footer container">
-    <small>© Clemson-inspired demo • Orange #F56600 • Regalia #522D80</small>
+   
   </footer>
 </body>
 </html>

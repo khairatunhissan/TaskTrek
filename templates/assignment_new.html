@@ -7,18 +7,41 @@
     <input name="title" required placeholder="e.g., HW1 – Loops & Functions">
   </label>
 
-  <label>Problems (hold Cmd/Ctrl to select multiple)
-    <select name="problem_ids" multiple size="5" required>
-      {% for p in problems %}
-        <option value="{{ p.id }}">{{ p.title }}</option>
+  <label>Problems & Points
+  <div class="problem-list"
+       style="max-height:220px; overflow-y:auto;
+              border:1px solid #ddd; border-radius:8px;
+              padding:0.5rem 0.75rem;">
+    {% for p in problems %}
+      <div class="problem-row"
+           style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.25rem;">
+        <label style="flex:1;">
+          <input type="checkbox" name="problem_ids" value="{{ p.id }}">
+          {{ p.title }}
+        </label>
+        <input type="number"
+               name="points_{{ p.id }}"
+               min="0"
+               value="3"
+               style="width:5rem; margin-left:0.5rem;" />
+      </div>
+    {% endfor %}
+  </div>
+  <small class="muted">
+    Check a problem and set how many points it is worth.
+  </small>
+</label>
+
+
+
+  <label>Students (hold Cmd/Ctrl to select multiple)
+    <select name="student_ids" multiple size="8" required>
+      {% for s in students %}
+        <option value="{{ s.id }}">{{ s.email }}</option>
       {% endfor %}
     </select>
   </label>
 
-  <label>Student Emails (comma or newline separated)
-    <textarea name="emails" rows="4"
-      placeholder="student@clemson.edu, student2@clemson.edu" required></textarea>
-  </label>
 
   <label>Note (optional)
     <textarea name="note" rows="3" placeholder="e.g., Complete by Friday."></textarea>

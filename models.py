@@ -6,6 +6,7 @@ db = SQLAlchemy()
 
 ROLE_INSTRUCTOR = "instructor"
 ROLE_STUDENT = "student"
+ROLE_ADMIN = "admin"
 
 
 class User(db.Model, UserMixin):
@@ -83,8 +84,12 @@ class AssignmentProblem(db.Model):
     assignment_id = db.Column(db.Integer, db.ForeignKey("assignment.id"), nullable=False)
     problem_id = db.Column(db.Integer, db.ForeignKey("problem.id"), nullable=False)
 
+    # 👇 NEW: points this problem is worth in this assignment
+    points = db.Column(db.Integer, nullable=False, default=0)
+
     assignment = db.relationship("Assignment", back_populates="problems")
     problem = db.relationship("Problem")
+
 
 
 class ProblemInvite(db.Model):

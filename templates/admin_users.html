@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page">Admin · Users</h1>
+
+<!-- Create new user -->
+<section class="card" style="margin-bottom: 2rem;">
+  <h2>Create New User</h2>
+  <form method="post" action="{{ url_for('admin_create_user') }}" class="form-grid">
+    <label>
+      Email
+      <input type="email" name="email" placeholder="user@clemson.edu" required>
+    </label>
+
+    <label>
+      Password
+      <input type="password" name="password" required>
+    </label>
+
+    <label>
+      Role
+      <!-- Only Student or Instructor – no Admin option -->
+      <select name="role">
+        <option value="student">Student</option>
+        <option value="instructor">Instructor</option>
+      </select>
+    </label>
+
+    <div class="actions">
+      <button class="btn primary" type="submit">Create User</button>
+    </div>
+  </form>
+</section>
+
+<!-- Existing users table -->
+<section class="card">
+  <h2>Existing Users</h2>
+
+  <table class="table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Email</th>
+        <th>Role</th>
+        <th>Change Role</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ u.email }}</td>
+          <td>{{ u.role }}</td>
+
+          <td>
+            {# Do not allow changing the single admin user #}
+            {% if u.email == "admin@clemson.edu" %}
+              <span class="muted">Admin role cannot be changed</span>
+            {% else %}
+              <form method="post"
+                    action="{{ url_for('admin_change_role', uid=u.id) }}"
+                    class="inline-form">
+                <select name="role">
+                  <option value="student"
+                          {% if u.role == "student" %}selected{% endif %}>
+                    Student
+                  </option>
+                  <option value="instructor"
+                          {% if u.role == "instructor" %}selected{% endif %}>
+                    Instructor
+                  </option>
+                </select>
+                <button class="btn" type="submit">Update</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% else %}
+        <tr>
+          <td colspan="4" class="muted">No users found.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

@@ -27,6 +27,18 @@
           <a class="btn" href="{{ url_for('assignment_leaderboard', aid=a.id) }}">
             View
           </a>
+          <!-- Edit assignment -->
+          <a class="btn" href="{{ url_for('assignment_edit', aid=a.id) }}">
+            Edit
+          </a>
+
+          <!-- Delete assignment -->
+          <form method="post"
+                action="{{ url_for('assignment_delete', aid=a.id) }}"
+                style="display:inline;"
+                onsubmit="return confirm('Delete this assignment and all its invites?');">
+            <button class="btn" type="submit">Delete</button>
+          </form>
         </td>
       </tr>
     {% else %}

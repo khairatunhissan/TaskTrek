@@ -1,4 +1,4 @@
-# app.py — REAL BACKEND (SQLite now; Postgres-ready)
+# app.py — REAL BACKEND (SQLite or Postgres via Config)
 import json, sys
 from uuid import uuid4
 
@@ -19,6 +19,7 @@ from models import (
     AssignmentProblem,
     ROLE_INSTRUCTOR,
     ROLE_STUDENT,
+    ROLE_ADMIN,
 )
 from grader import grade
 
@@ -69,7 +70,7 @@ def inject_role():
 
 
 def _seed_default_users():
-    """Create some default instructors and students for testing."""
+    """Create some default instructors, students, and an admin for testing."""
     created_any = False
 
     # Instructors
@@ -124,6 +125,17 @@ def _seed_default_users():
         print("Created student: student3@clemson.edu / changeme")
         created_any = True
 
+    # Admin
+    if not User.query.filter_by(email="admin@clemson.edu").first():
+        admin = User(
+            email="admin@clemson.edu",
+            password_hash=generate_password_hash("changeme"),
+            role=ROLE_ADMIN,
+        )
+        db.session.add(admin)
+        created_any = True
+        print("Created admin: admin@clemson.edu / changeme")
+
     if created_any:
         db.session.commit()
         print("Default users seeded.")
@@ -163,49 +175,68 @@ def logout():
     return redirect(url_for("login"))
 
 
+@app.route("/change_password", methods=["GET", "POST"])
+@login_required
+def change_password():
+    if request.method == "POST":
+        current_pw = request.form.get("current_password", "")
+        new_pw = request.form.get("new_password", "")
+        confirm_pw = request.form.get("confirm_password", "")
+
+        if not current_pw or not new_pw or not confirm_pw:
+            flash("All fields are required.", "error")
+            return render_template("change_password.html")
+
+        if not check_password_hash(current_user.password_hash, current_pw):
+            flash("Current password is incorrect.", "error")
+            return render_template("change_password.html")
+
+        if len(new_pw) < 6:
+            flash("New password must be at least 6 characters.", "error")
+            return render_template("change_password.html")
+
+        if new_pw != confirm_pw:
+            flash("New password and confirmation do not match.", "error")
+            return render_template("change_password.html")
+
+        current_user.password_hash = generate_password_hash(new_pw)
+        db.session.commit()
+        flash("Password updated successfully.", "success")
+        return redirect(url_for("index"))
+
+    return render_template("change_password.html")
+
+
 # --- Home / dashboards ---
 @app.route("/")
 @login_required
 def index():
-    if current_user.role == ROLE_INSTRUCTOR:
+    if current_user.role == ROLE_ADMIN:
+        return redirect(url_for("admin_users"))
+    elif current_user.role == ROLE_INSTRUCTOR:
         return render_template("dashboard_instructor.html")
-    return render_template("dashboard_student.html")
+    else:
+        return render_template("dashboard_student.html")
 
 
-# --- Invites (Instructor, legacy single-problem) ---
-@app.route("/invite", methods=["GET", "POST"])
-@login_required
-def invite():
-    if current_user.role != ROLE_INSTRUCTOR:
-        abort(403)
-    token = None
-    if request.method == "POST":
-        email = request.form.get("email", "").strip().lower()
-        if not email:
-            flash("Email required", "error")
-        else:
-            token = str(uuid4())
-            inv = Invite(email=email, token=token, used=False)
-            db.session.add(inv)
-            db.session.commit()
-            flash("Invite created. Share the link below.", "success")
-    return render_template("invite.html", token=token)
-
-
+# --- Invite acceptance (legacy token-based invites) ---
 @app.route("/accept/<token>", methods=["GET", "POST"])
 def accept_invite(token):
     inv = Invite.query.filter_by(token=token, used=False).first()
     if not inv:
         flash("Invalid or used invite.", "error")
         return redirect(url_for("login"))
+
     if request.method == "POST":
         pw = request.form.get("password", "")
         if len(pw) < 6:
             flash("Password must be at least 6 characters.", "error")
             return render_template("accept_invite.html", email=inv.email)
+
         if User.query.filter_by(email=inv.email).first():
             flash("User already exists. Please log in.", "warning")
             return redirect(url_for("login"))
+
         u = User(
             email=inv.email,
             password_hash=generate_password_hash(pw),
@@ -216,57 +247,8 @@ def accept_invite(token):
         db.session.commit()
         flash("Account created. Please log in.", "success")
         return redirect(url_for("login"))
+
     return render_template("accept_invite.html", email=inv.email)
-
-
-# --- Single-problem assign (still allowed, but not grouped as assignment) ---
-@app.route("/assign", methods=["GET", "POST"])
-@login_required
-def assign():
-    if current_user.role != ROLE_INSTRUCTOR:
-        abort(403)
-    problems = Problem.query.order_by(Problem.created_at.desc()).all()
-    created = []
-    if request.method == "POST":
-        problem_id = request.form.get("problem_id")
-        emails_raw = request.form.get("emails", "")
-        note = request.form.get("note", "").strip() or None
-        try:
-            pid = int(problem_id)
-            problem = db.session.get(Problem, pid)
-            if not problem:
-                raise ValueError("No such problem")
-        except Exception:
-            flash("Select a valid problem.", "error")
-            return render_template("assign.html", problems=problems)
-
-        # split on commas/whitespace
-        emails = [
-            e.strip().lower()
-            for e in emails_raw.replace("\n", ",").split(",")
-            if e.strip()
-        ]
-        if not emails:
-            flash("Add at least one student email.", "error")
-            return render_template("assign.html", problems=problems)
-
-        for em in emails:
-            student = User.query.filter_by(email=em).first()
-            inv = ProblemInvite(
-                instructor_id=current_user.id,
-                student_id=(student.id if student else None),
-                student_email=em,
-                problem_id=problem.id,
-                note=note,
-                status="pending",
-            )
-            db.session.add(inv)
-            created.append(em)
-        db.session.commit()
-        flash(f"Invited {len(created)} student(s) to '{problem.title}'.", "success")
-        return redirect(url_for("assign"))
-
-    return render_template("assign.html", problems=problems, created=created)
 
 
 # --- Assignments (multiple problems × multiple students) ---
@@ -291,22 +273,19 @@ def assignment_new():
         abort(403)
 
     problems = Problem.query.order_by(Problem.created_at.desc()).all()
+    students = User.query.filter_by(role=ROLE_STUDENT).order_by(User.email.asc()).all()
 
     if request.method == "POST":
         title = request.form.get("title", "").strip()
         problem_ids = request.form.getlist("problem_ids")
-        emails_raw = request.form.get("emails", "")
+        student_ids = request.form.getlist("student_ids")
         note = request.form.get("note", "").strip() or None
 
         if not title:
             flash("Title is required.", "error")
-            return render_template("assignment_new.html", problems=problems)
+            return render_template("assignment_new.html", problems=problems, students=students)
 
-        if not problem_ids:
-            flash("Select at least one problem.", "error")
-            return render_template("assignment_new.html", problems=problems)
-
-        # Resolve problem IDs
+        # Resolve problems
         selected_problems = []
         for pid in problem_ids:
             try:
@@ -317,18 +296,24 @@ def assignment_new():
                 selected_problems.append(pr)
 
         if not selected_problems:
-            flash("No valid problems selected.", "error")
-            return render_template("assignment_new.html", problems=problems)
+            flash("Select at least one problem.", "error")
+            return render_template("assignment_new.html", problems=problems, students=students)
 
-        # Parse student emails
-        emails = [
-            e.strip().lower()
-            for e in emails_raw.replace("\n", ",").split(",")
-            if e.strip()
-        ]
-        if not emails:
-            flash("Add at least one student email.", "error")
-            return render_template("assignment_new.html", problems=problems)
+        # Resolve students
+        if not student_ids:
+            flash("Select at least one student.", "error")
+            return render_template("assignment_new.html", problems=problems, students=students)
+
+        try:
+            student_ids_int = [int(sid) for sid in student_ids]
+        except ValueError:
+            flash("Invalid student selection.", "error")
+            return render_template("assignment_new.html", problems=problems, students=students)
+
+        selected_students = User.query.filter(User.id.in_(student_ids_int)).all()
+        if not selected_students:
+            flash("No valid students selected.", "error")
+            return render_template("assignment_new.html", problems=problems, students=students)
 
         # Create assignment
         assignment = Assignment(
@@ -338,19 +323,34 @@ def assignment_new():
         db.session.add(assignment)
         db.session.flush()  # get assignment.id
 
-        # Link problems to assignment
+        # Parse points for each selected problem
+        points_map = {}
         for pr in selected_problems:
-            ap = AssignmentProblem(assignment_id=assignment.id, problem_id=pr.id)
+            raw = request.form.get(f"points_{pr.id}", "").strip()
+            try:
+                pts = int(raw)
+            except ValueError:
+                pts = 0
+            if pts < 0:
+                pts = 0
+            points_map[pr.id] = pts
+
+        # Link problems to assignment with points
+        for pr in selected_problems:
+            ap = AssignmentProblem(
+                assignment_id=assignment.id,
+                problem_id=pr.id,
+                points=points_map.get(pr.id, 0),
+            )
             db.session.add(ap)
 
-        # Create invites: each student × each problem
-        for em in emails:
-            student = User.query.filter_by(email=em).first()
+        # Create invites: each selected student × each selected problem
+        for st in selected_students:
             for pr in selected_problems:
                 inv = ProblemInvite(
                     instructor_id=current_user.id,
-                    student_id=(student.id if student else None),
-                    student_email=em,
+                    student_id=st.id,
+                    student_email=st.email,
                     problem_id=pr.id,
                     assignment_id=assignment.id,
                     note=note,
@@ -363,7 +363,169 @@ def assignment_new():
         return redirect(url_for("assignments"))
 
     # GET
-    return render_template("assignment_new.html", problems=problems)
+    return render_template("assignment_new.html", problems=problems, students=students)
+
+
+@app.route("/assignments/<int:aid>/edit", methods=["GET", "POST"])
+@login_required
+def assignment_edit(aid):
+    if current_user.role != ROLE_INSTRUCTOR:
+        abort(403)
+
+    assignment = db.session.get(Assignment, aid)
+    if not assignment:
+        flash("Assignment not found.", "error")
+        return redirect(url_for("assignments"))
+
+    if assignment.instructor_id != current_user.id:
+        abort(403)
+
+    problems = Problem.query.order_by(Problem.created_at.desc()).all()
+    students = User.query.filter_by(role=ROLE_STUDENT).order_by(User.email.asc()).all()
+
+    if request.method == "POST":
+        title = request.form.get("title", "").strip()
+        problem_ids = request.form.getlist("problem_ids")
+        student_ids = request.form.getlist("student_ids")
+        note = request.form.get("note", "").strip() or None
+
+        if not title:
+            flash("Title is required.", "error")
+        else:
+            # Resolve problems
+            selected_problems = []
+            for pid in problem_ids:
+                try:
+                    pr = db.session.get(Problem, int(pid))
+                except Exception:
+                    pr = None
+                if pr:
+                    selected_problems.append(pr)
+
+            if not selected_problems:
+                flash("Select at least one problem.", "error")
+            else:
+                # Resolve students
+                if not student_ids:
+                    flash("Select at least one student.", "error")
+                else:
+                    try:
+                        student_ids_int = [int(sid) for sid in student_ids]
+                    except ValueError:
+                        flash("Invalid student selection.", "error")
+                        student_ids_int = []
+
+                    selected_students = User.query.filter(
+                        User.id.in_(student_ids_int)
+                    ).all()
+
+                    if not selected_students:
+                        flash("No valid students selected.", "error")
+                    else:
+                        # Apply updates
+                        assignment.title = title
+
+                        # Parse per-problem points
+                        points_map = {}
+                        for pr in selected_problems:
+                            raw = request.form.get(f"points_{pr.id}", "").strip()
+                            try:
+                                pts = int(raw)
+                            except ValueError:
+                                pts = 0
+                            if pts < 0:
+                                pts = 0
+                            points_map[pr.id] = pts
+
+                        # Clear old problem links and invites
+                        assignment.problems.clear()
+                        assignment.invites.clear()
+                        db.session.flush()
+
+                        # Re-add problems with points
+                        for pr in selected_problems:
+                            ap = AssignmentProblem(
+                                assignment_id=assignment.id,
+                                problem_id=pr.id,
+                                points=points_map.get(pr.id, 0),
+                            )
+                            db.session.add(ap)
+
+                        # Recreate invites
+                        for st in selected_students:
+                            for pr in selected_problems:
+                                inv = ProblemInvite(
+                                    instructor_id=current_user.id,
+                                    student_id=st.id,
+                                    student_email=st.email,
+                                    problem_id=pr.id,
+                                    assignment_id=assignment.id,
+                                    note=note,
+                                    status="pending",
+                                )
+                                db.session.add(inv)
+
+                        db.session.commit()
+                        flash(f"Assignment '{assignment.title}' updated.", "success")
+                        return redirect(url_for("assignments"))
+
+    # GET or POST with errors: build current state
+    selected_problem_ids = {ap.problem_id for ap in assignment.problems}
+    current_student_ids = {
+        inv.student_id for inv in assignment.invites if inv.student_id is not None
+    }
+
+    # First non-empty note
+    note = None
+    for inv in assignment.invites:
+        if inv.note:
+            note = inv.note
+            break
+
+    import json as _json
+    problem_points = {}
+    for ap in assignment.problems:
+        pts = ap.points or 0
+        if pts <= 0:
+            try:
+                problem_points[ap.problem_id] = len(
+                    _json.loads(ap.problem.tests_json)
+                )
+            except Exception:
+                problem_points[ap.problem_id] = 0
+        else:
+            problem_points[ap.problem_id] = pts
+
+    return render_template(
+        "assignment_edit.html",
+        assignment=assignment,
+        problems=problems,
+        students=students,
+        selected_problem_ids=selected_problem_ids,
+        current_student_ids=current_student_ids,
+        problem_points=problem_points,
+        note=note,
+    )
+
+
+@app.route("/assignments/<int:aid>/delete", methods=["POST"])
+@login_required
+def assignment_delete(aid):
+    if current_user.role != ROLE_INSTRUCTOR:
+        abort(403)
+
+    assignment = db.session.get(Assignment, aid)
+    if not assignment:
+        flash("Assignment not found.", "error")
+        return redirect(url_for("assignments"))
+
+    if assignment.instructor_id != current_user.id:
+        abort(403)
+
+    db.session.delete(assignment)
+    db.session.commit()
+    flash("Assignment deleted.", "success")
+    return redirect(url_for("assignments"))
 
 
 @app.route("/assignments/<int:aid>/leaderboard")
@@ -375,8 +537,6 @@ def assignment_leaderboard(aid):
         return redirect(url_for("assignments"))
 
     # Permissions:
-    # - Instructor who owns it
-    # - OR student who has invites for this assignment
     allowed = False
     if current_user.role == ROLE_INSTRUCTOR and assignment.instructor_id == current_user.id:
         allowed = True
@@ -395,6 +555,7 @@ def assignment_leaderboard(aid):
     # Problems in this assignment
     problem_ids = [ap.problem_id for ap in assignment.problems]
     problems_by_id = {ap.problem_id: ap.problem for ap in assignment.problems}
+    points_by_pid = {ap.problem_id: ap.points for ap in assignment.problems}
 
     if not problem_ids:
         flash("This assignment has no problems.", "warning")
@@ -405,7 +566,7 @@ def assignment_leaderboard(aid):
             rows=[],
         )
 
-    # Students with at least one *invite* for this assignment
+    # Students with at least one invite for this assignment
     invites = ProblemInvite.query.filter_by(assignment_id=assignment.id).all()
     student_ids = {inv.student_id for inv in invites if inv.student_id is not None}
 
@@ -427,7 +588,7 @@ def assignment_leaderboard(aid):
         for uid, pid, best, total in rows:
             scores[(uid, pid)] = (int(best or 0), int(total or 0))
 
-    # How many tests per problem (max possible score)
+    # Tests per problem
     import json as _json
     tests_per_problem = {}
     for pid in problem_ids:
@@ -437,23 +598,46 @@ def assignment_leaderboard(aid):
         except Exception:
             tests_per_problem[pid] = 0
 
+    # Max points per problem
+    max_points_per_problem = {}
+    for pid in problem_ids:
+        pts = points_by_pid.get(pid, 0)
+        if not pts:
+            pts = tests_per_problem.get(pid, 0)
+        max_points_per_problem[pid] = pts
+
     # Build table rows
     table_rows = []
     for uid in sorted(student_ids):
         user = db.session.get(User, uid)
         if not user:
             continue
+
         per_problem = []
         total_score = 0
         total_max = 0
+
         for pid in problem_ids:
-            score, _ = scores.get((uid, pid), (0, tests_per_problem[pid]))
-            max_score = tests_per_problem[pid]
-            per_problem.append(
-                {"problem": problems_by_id[pid], "score": score, "max": max_score}
+            best_tests, total_tests = scores.get(
+                (uid, pid),
+                (0, tests_per_problem[pid])
             )
-            total_score += score
-            total_max += max_score
+            max_points = max_points_per_problem[pid]
+
+            if total_tests and max_points:
+                score_points = int(round(best_tests / total_tests * max_points))
+            else:
+                score_points = 0
+
+            per_problem.append(
+                {
+                    "problem": problems_by_id[pid],
+                    "score": score_points,
+                    "max": max_points,
+                }
+            )
+            total_score += score_points
+            total_max += max_points
 
         table_rows.append(
             {
@@ -474,11 +658,9 @@ def assignment_leaderboard(aid):
     )
 
 
-
 @app.route("/my_assignments")
 @login_required
 def my_assignments():
-    """Assignments that this student has at least one invite for."""
     if current_user.role != ROLE_STUDENT:
         abort(403)
 
@@ -498,7 +680,6 @@ def my_assignments():
     return render_template("assignments_student.html", assignments=assignments)
 
 
-
 # --- Notifications (Student) ---
 @app.route("/notifications", methods=["GET", "POST"])
 @login_required
@@ -511,7 +692,6 @@ def notifications():
         (ProblemInvite.student_email == current_user.email.lower())
     ).order_by(ProblemInvite.created_at.desc()).all()
 
-    # Accept action
     if request.method == "POST":
         iid = request.form.get("invite_id")
         inv = db.session.get(ProblemInvite, int(iid)) if iid and iid.isdigit() else None
@@ -560,13 +740,14 @@ def problem_new():
         title = request.form.get("title", "").strip()
         prompt = request.form.get("prompt", "").strip()
         tests = request.form.get("tests", "").strip()
-        # Validate tests is JSON list
+
         try:
             parsed = json.loads(tests)
             assert isinstance(parsed, list)
         except Exception:
             flash('Tests must be a JSON list, e.g. [{"input":5,"expected":120}]', "error")
             return render_template("problem_new.html")
+
         p = Problem(
             title=title,
             prompt=prompt,
@@ -719,40 +900,74 @@ def submit(pid):
     return render_template("submit.html", p=p, details=details)
 
 
-# --- Global Leaderboard (all problems) ---
-@app.route("/leaderboard")
+# --- Admin panel: manage users (admin only) ---
+def _require_admin():
+    if not current_user.is_authenticated or current_user.role != ROLE_ADMIN:
+        abort(403)
+
+
+@app.route("/admin/users")
 @login_required
-def leaderboard():
-    # Best score per (user_id, problem_id) across ALL submissions
-    rows_subq = (
-        db.session.query(
-            Submission.user_id,
-            Submission.problem_id,
-            func.max(Submission.score).label("best"),
-        )
-        .group_by(Submission.user_id, Submission.problem_id)
-        .subquery()
+def admin_users():
+    _require_admin()
+    users = User.query.order_by(User.created_at.desc()).all()
+    return render_template(
+        "admin_users.html",
+        users=users,
+        ROLE_STUDENT=ROLE_STUDENT,
+        ROLE_INSTRUCTOR=ROLE_INSTRUCTOR,
+        ROLE_ADMIN=ROLE_ADMIN,
     )
 
-    totals = (
-        db.session.query(
-            rows_subq.c.user_id,
-            func.sum(rows_subq.c.best).label("total"),
-        )
-        .group_by(rows_subq.c.user_id)
-        .having(func.sum(rows_subq.c.best) > 0)  # <- only users with > 0 points
-        .all()
+
+@app.route("/admin/users/new", methods=["POST"])
+@login_required
+def admin_create_user():
+    _require_admin()
+    email = request.form.get("email", "").strip().lower()
+    pw = request.form.get("password", "")
+    role = request.form.get("role", ROLE_STUDENT)
+
+    if not email or not pw:
+        flash("Email and password are required.", "error")
+        return redirect(url_for("admin_users"))
+
+    if User.query.filter_by(email=email).first():
+        flash("User with that email already exists.", "error")
+        return redirect(url_for("admin_users"))
+
+    if role not in (ROLE_STUDENT, ROLE_INSTRUCTOR):
+        role = ROLE_STUDENT
+
+    u = User(
+        email=email,
+        password_hash=generate_password_hash(pw),
+        role=role,
     )
+    db.session.add(u)
+    db.session.commit()
+    flash(f"Created {role} account for {email}.", "success")
+    return redirect(url_for("admin_users"))
 
-    data = []
-    for uid, total in totals:
-        u = db.session.get(User, uid)
-        if not u:
-            continue
-        data.append({"user": u.email, "total": int(total or 0)})
 
-    data.sort(key=lambda x: x["total"], reverse=True)
-    return render_template("leaderboard.html", data=data)
+@app.route("/admin/users/<int:uid>/role", methods=["POST"])
+@login_required
+def admin_change_role(uid):
+    _require_admin()
+    user = db.session.get(User, uid)
+    if not user:
+        flash("User not found.", "error")
+        return redirect(url_for("admin_users"))
+
+    role = request.form.get("role", ROLE_STUDENT)
+    if role not in (ROLE_STUDENT, ROLE_INSTRUCTOR):
+        flash("Invalid role selected.", "error")
+        return redirect(url_for("admin_users"))
+
+    user.role = role
+    db.session.commit()
+    flash(f"Updated role for {user.email} to {role}.", "success")
+    return redirect(url_for("admin_users"))
 
 
 # --- Errors ---
