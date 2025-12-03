@@ -981,6 +981,26 @@ def e404(_):
     return render_template("404.html"), 404
 
 
+# --- Auto DB init for Render free plan ---
+from sqlalchemy.exc import OperationalError, ProgrammingError
+
+@app.before_first_request
+def initialize_database():
+    """
+    On the first incoming request, make sure the DB schema exists
+    and seed the default users (admin/instructors/students).
+    This is safe to run multiple times.
+    """
+    try:
+        db.create_all()
+        _seed_default_users()
+    except (OperationalError, ProgrammingError) as e:
+        # Log but don't crash the app if there's a transient DB issue
+        app.logger.error(f"DB initialization error: {e}")
+    except Exception as e:
+        app.logger.error(f"Unexpected DB initialization error: {e}")
+
+
 if __name__ == "__main__":
     # Allow: python3 app.py initdb OR python3 app.py
     if len(sys.argv) > 1 and sys.argv[1] == "initdb":
