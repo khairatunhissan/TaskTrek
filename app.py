@@ -32,18 +32,7 @@ db.init_app(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 
-# --- Ensure DB exists on startup (for Render free plan) ---
-from sqlalchemy.exc import OperationalError, ProgrammingError
 
-with app.app_context():
-    try:
-        db.create_all()
-        _seed_default_users()
-        app.logger.info("Database tables ensured and default users seeded.")
-    except (OperationalError, ProgrammingError) as e:
-        app.logger.error(f"DB initialization error: {e}")
-    except Exception as e:
-        app.logger.error(f"Unexpected DB initialization error: {e}")
 
 
 @login_manager.user_loader
@@ -155,6 +144,18 @@ def _seed_default_users():
     else:
         print("Default users already exist; nothing to seed.")
 
+from sqlalchemy.exc import OperationalError, ProgrammingError
+
+# Ensure DB tables exist and default users are created on startup (Render free plan)
+with app.app_context():
+    try:
+        db.create_all()
+        _seed_default_users()
+        app.logger.info("Database tables ensured and default users seeded.")
+    except (OperationalError, ProgrammingError) as e:
+        app.logger.error(f"DB initialization error: {e}")
+    except Exception as e:
+        app.logger.error(f"Unexpected DB initialization error: {e}")
 
 # --- CLI: initdb ---
 @app.cli.command("initdb")
